@@ -9,12 +9,13 @@ public with sharing class SponsorTriggerHandler {
 
     public static void onBeforeInsertAndUpdate(List<CAMPX__Sponsor__c> newRecords) {
         setTierLevel(newRecords);
+        preventAcceptedWithoutEvent(newRecords);
     }
 
     public static void setDefaultStatus(List<CAMPX__Sponsor__c> newRecords) {
         if(newRecords.size() > 0) {
             for(CAMPX__Sponsor__c sponsor : newRecords) {
-                if(sponsor.CAMPX__Status__c != 'Rejected') {
+                if(sponsor.CAMPX__Status__c != 'Rejected' || sponsor.CAMPX__Status__c == null) {
                     sponsor.CAMPX__Status__c = STATUS_PENDING;
                 } else {
                     System.debug('This should remain the same.');
@@ -43,6 +44,13 @@ public with sharing class SponsorTriggerHandler {
                 sponsor.CAMPX__Tier__c = 'Gold';
             }
         }
-        
+    }
+
+    public static void preventAcceptedWithoutEvent(List<CAMPX__Sponsor__c> newRecords) {
+        for(CAMPX__Sponsor__c sponsor : newRecords) {
+            if(sponsor.CAMPX__Status__c == 'Accepted' && sponsor.CAMPX__Event__c == null) {
+                sponsor.addError('Cannot change status to Accepted if there is no related event');
+            }
+        }
     }
 }

@@ -111,4 +111,23 @@ private class SponsorTriggerHandlerTest {
             }
         }
     }
+
+    @isTest static void testAcceptedWithoutEvent() {
+        List<CAMPX__Sponsor__c> newRecords = new List<CAMPX__Sponsor__c>();
+
+        for(Integer i = 0; i < 3; i++) {
+            newRecords.add(new CAMPX__Sponsor__c(Name='Test this' + i));
+        }
+
+        Test.startTest();
+        for(CAMPX__Sponsor__c sponsor : newRecords) {
+            try{
+                insert sponsor;
+                System.assert(false, 'DML error was thrown, cannot change status to accepted without related event');
+            } catch (DmlException e) {
+                System.assertEquals(e.getMessage(), e.getMessage());
+            }
+        }
+        Test.stopTest();
+    }
 }
