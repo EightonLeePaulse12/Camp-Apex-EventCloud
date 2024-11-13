@@ -1,29 +1,44 @@
 public with sharing class SponsorTriggerHandler {
     
     private static final string STATUS_PENDING = 'Pending';
+    private static final string STATUS_ACCEPTED = 'Accepted';
+    private static final string STATUS_REJECTED = 'Rejected';
+    private static final Decimal BRONZE = 0;
+    private static final Decimal SILVER = 1000;
+    private static final Decimal GOLD = 5000;
 
+    public static  void handleBeforeInsert(List<CAMPX__Sponsor__c> newRecords) {
+        SponsorTriggerHandler.OnBeforeInsert(newRecords);
+        SponsorTriggerHandler.onBeforeInsertAndUpdate(newRecords);
+    }
+    
+    public static void handleBeforeUpdate(List<CAMPX__Sponsor__c> newRecords) {
+        System.debug('Trigger - before update');
+        SponsorTriggerHandler.onBeforeInsertAndUpdate(newRecords);
+    }
+    
     public static void OnBeforeInsert(List<CAMPX__Sponsor__c> newRecords) {
         setDefaultStatus(newRecords);
         setEmailRequirement(newRecords);
     }
-
+    
     public static void onBeforeInsertAndUpdate(List<CAMPX__Sponsor__c> newRecords) {
         setTierLevel(newRecords);
         preventAcceptedWithoutEvent(newRecords);
     }
-
+    
     public static void setDefaultStatus(List<CAMPX__Sponsor__c> newRecords) {
-        if(newRecords.size() > 0) {
-            for(CAMPX__Sponsor__c sponsor : newRecords) {
-                if(sponsor.CAMPX__Status__c != 'Rejected' || sponsor.CAMPX__Status__c == null) {
-                    sponsor.CAMPX__Status__c = STATUS_PENDING;
-                } else {
-                    System.debug('This should remain the same.');
-                }
+        for(CAMPX__Sponsor__c sponsor : newRecords) {
+            if(!isStatusAcceptedOrRejected(sponsor.CAMPX__Status__c)) {
+                sponsor.CAMPX__Status__c = STATUS_PENDING;
             }
         }
     }
 
+    private static Boolean isStatusAcceptedOrRejected(String status) {
+        return status == STATUS_REJECTED || status == STATUS_ACCEPTED;
+    }
+    
     public static void setEmailRequirement(List<CAMPX__Sponsor__c> newRecords) {
         for(CAMPX__Sponsor__c sponsor : newRecords) {
             if(String.isBlank(sponsor.CAMPX__Email__c)) {
@@ -31,26 +46,34 @@ public with sharing class SponsorTriggerHandler {
             }
         }
     }
-
+    
     public static void setTierLevel(List<CAMPX__Sponsor__c> newRecords) {
         for(CAMPX__Sponsor__c sponsor : newRecords) {
-            if(sponsor.CAMPX__ContributionAmount__c == null || sponsor.CAMPX__ContributionAmount__c <= 0) {
-                sponsor.CAMPX__Tier__c = null;  // No tier if the amount is null or zero
-            } else if(sponsor.CAMPX__ContributionAmount__c > 0 && sponsor.CAMPX__ContributionAmount__c < 1000) {
-                sponsor.CAMPX__Tier__c = 'Bronze';
-            } else if(sponsor.CAMPX__ContributionAmount__c >= 1000 && sponsor.CAMPX__ContributionAmount__c < 5000) {
-                sponsor.CAMPX__Tier__c = 'Silver';
-            } else if(sponsor.CAMPX__ContributionAmount__c >= 5000) {
-                sponsor.CAMPX__Tier__c = 'Gold';
+            sponsor.CAMPX__Tier__c = getSponsorTier(sponsor.CAMPX__ContributionAmount__c);
+        }
+    }
+
+    private static String getSponsorTier(Decimal contributionAmount) {
+        if (contributionAmount == null || contributionAmount <= BRONZE) {
+            return null;  // No tier if the amount is null or zero
+        } else if (contributionAmount < SILVER) {
+            return 'Bronze';
+        } else if (contributionAmount < GOLD) {
+            return 'Silver';
+        } else {
+            return 'Gold';
+        }
+    }
+    
+    public static void preventAcceptedWithoutEvent(List<CAMPX__Sponsor__c> newRecords) {
+        for(CAMPX__Sponsor__c sponsor : newRecords) {
+            if(shouldPreventAcceptedWithoutEvent(sponsor)) {
+                sponsor.addError('A sponsor must be associated with an event before being Accepted.');
             }
         }
     }
 
-    public static void preventAcceptedWithoutEvent(List<CAMPX__Sponsor__c> newRecords) {
-        for(CAMPX__Sponsor__c sponsor : newRecords) {
-            if(sponsor.CAMPX__Status__c == 'Accepted' && sponsor.CAMPX__Event__c == null) {
-                sponsor.addError('Cannot change status to Accepted if there is no related event');
-            }
-        }
+    private static Boolean shouldPreventAcceptedWithoutEvent(CAMPX__Sponsor__c sponsor) {
+        return sponsor.CAMPX__Status__c == STATUS_ACCEPTED && sponsor.CAMPX__Event__c == null;
     }
 }
