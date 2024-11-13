@@ -2,10 +2,9 @@ trigger CampSponsorTrigger on CAMPX__Sponsor__c (before insert, after insert, be
     if(Trigger.isBefore) {
         if(Trigger.isInsert) {
             SponsorTriggerHandler.OnBeforeInsert(Trigger.new);
+            SponsorTriggerHandler.onBeforeInsertAndUpdate(Trigger.new);
+        } else if(Trigger.isUpdate) {
+            SponsorTriggerHandler.onBeforeInsertAndUpdate(Trigger.new);
         }
-    } else {
-        // if(Trigger.isInsert || Trigger.isUpdate) {
-        //     SponsorTriggerHandler.onAfterInsertAndUpdate(Trigger.new, Trigger.oldMap);
-        // }
     }
 }
