@@ -7,7 +7,19 @@ public with sharing class EventTriggerHandler {
     }
 
     public static void onAfterInsertAndUpdate(List<CAMPX__Event__c> newRecords, Map<Id, CAMPX__Event__c> oldRecordsMap) {
-        setStatusChangeDate(newRecords, oldRecordsMap);
+        List<CAMPX__Event__c> recordsToUpdate = new List<CAMPX__Event__c>();
+
+        for(CAMPX__Event__c newEvent : newRecords) {
+            Boolean isStatusChanged = isStatusChanged(newEvent, oldRecordsMap);
+
+            if(isStatusChanged || oldRecordsMap == null || !oldRecordsMap.containsKey(newEvent.Id)) {
+                recordsToUpdate.add(createStatusChangeDateUpdate(newEvent.Id));
+            }
+        }
+
+        if(!recordsToUpdate.isEmpty()) {
+            update recordsToUpdate;
+        }
     }
 
     public static void setDefaultStatus(List<CAMPX__Event__c> newRecords) {
@@ -16,32 +28,17 @@ public with sharing class EventTriggerHandler {
         }
     }
 
-    public static void setStatusChangeDate(List<CAMPX__Event__c> newRecords, Map<Id, CAMPX__Event__c> oldRecordsMap) {
-        List<CAMPX__Event__c> recordsToUpdate = new List<CAMPX__Event__c>();
-
-        for(CAMPX__Event__c newEvent : newRecords) {
-            if(oldRecordsMap != null && oldRecordsMap.containsKey(newEvent.Id)) {
-                // Check if status changed
-                if(newEvent.CAMPX__Status__c != oldRecordsMap.get(newEvent.Id).CAMPX__Status__c) {
-                    CAMPX__Event__c eventToUpdate = new CAMPX__Event__c(
-                        Id = newEvent.Id,
-                        CAMPX__StatusChangeDate__c = System.now()
-                    );
-                    recordsToUpdate.add(eventToUpdate);
-                }
-            } else {
-                // Set StatusChangeDate for new records
-                CAMPX__Event__c eventToUpdate = new CAMPX__Event__c(
-                    Id = newEvent.Id,
-                    CAMPX__StatusChangeDate__c = System.now()
-                );
-                recordsToUpdate.add(eventToUpdate);
-            }
+    private static Boolean isStatusChanged(CAMPX__Event__c newEvent, Map<Id, CAMPX__Event__c> oldRecordsMap) {
+        if(oldRecordsMap != null && oldRecordsMap.containsKey(newEvent.Id)) {
+            return newEvent.CAMPX__Status__c != oldRecordsMap.get(newEvent.Id).CAMPX__Status__c;
         }
+        return false;
+    }
 
-        // Perform a single update on records that need their StatusChangeDate__c set or updated
-        if (!recordsToUpdate.isEmpty()) {
-            update recordsToUpdate;
-        }
+    private static CAMPX__Event__c createStatusChangeDateUpdate(Id eventId) {
+        return new CAMPX__Event__c(
+            Id = eventId,
+            CAMPX__StatusChangeDate__c = System.now()
+        );
     }
 }
