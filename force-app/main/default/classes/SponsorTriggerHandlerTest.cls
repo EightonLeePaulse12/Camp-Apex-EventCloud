@@ -84,7 +84,7 @@ private class SponsorTriggerHandlerTest {
         List<CAMPX__Sponsor__c> newRecords = new List<CAMPX__Sponsor__c>{
             new CAMPX__Sponsor__c(Name='Blank Test', CAMPX__ContributionAmount__c = 500, CAMPX__Email__c = 'dog@example.com'),
             new CAMPX__Sponsor__c(Name='Blank Test', CAMPX__ContributionAmount__c = 1600, 	CAMPX__Email__c = 'pear@example.com'),
-            new CAMPX__Sponsor__c(Name='Blank Test', CAMPX__ContributionAmount__c = 6000, CAMPX__Email__c = 'banana@example.com');
+            new CAMPX__Sponsor__c(Name='Blank Test', CAMPX__ContributionAmount__c = 6000, CAMPX__Email__c = 'banana@example.com')
         };
         
 
@@ -144,5 +144,29 @@ private class SponsorTriggerHandlerTest {
             }
         }
         Test.stopTest();
+    }
+
+    // When Sponsor Record's status is updated to "Accepted", their contributedamount should be added onto the related event's Gross Revenue
+
+    @isTest static void testAddOntoGrossRev() {
+        CAMPX__Event__c newEvent = new CAMPX__Event__c(Name='New event');
+        insert newEvent;
+
+        List<CAMPX__Sponsor__c> sponsors = createSponsorsWithEmail(3);
+
+        for(CAMPX__Sponsor__c sponsor : sponsors) {
+            sponsor.CAMPX__ContributionAmount__c = 2000;
+            sponsor.CAMPX__Status__c = 'Accepted';
+            sponsor.CAMPX__Event__c = newEvent.Id;
+        }
+
+        Test.startTest();
+        insert sponsors;
+
+        newEvent = [SELECT Id, CAMPX__GrossRevenue__c FROM CAMPX__Event__c WHERE Id = :newEvent.Id];
+
+        System.assertEquals(6000, newEvent.CAMPX__GrossRevenue__c, 'Gross Revenue should reflect related sponsor\'s contribution amounts');
+        Test.stopTest();
+
     }
 }

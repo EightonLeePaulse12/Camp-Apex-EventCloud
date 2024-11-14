@@ -25,6 +25,7 @@ public with sharing class SponsorTriggerHandler {
     public static void onBeforeInsertAndUpdate(List<CAMPX__Sponsor__c> newRecords) {
         setTierLevel(newRecords);
         preventAcceptedWithoutEvent(newRecords);
+        setGrossRevenue(newRecords);
     }
     
     public static void setDefaultStatus(List<CAMPX__Sponsor__c> newRecords) {
@@ -75,5 +76,30 @@ public with sharing class SponsorTriggerHandler {
 
     private static Boolean shouldPreventAcceptedWithoutEvent(CAMPX__Sponsor__c sponsor) {
         return sponsor.CAMPX__Status__c == STATUS_ACCEPTED && sponsor.CAMPX__Event__c == null;
+    }
+
+    public static void setGrossRevenue(List<CAMPX__Sponsor__c> newRecords) {
+        Set<Id> eventIds = new Set<Id>();
+
+        for(CAMPX__Sponsor__c sponsor: newRecords) {
+            if(sponsor.CAMPX__Status__c == 'Accepted' && sponsor.CAMPX__Event__c != null) {
+                eventIds.add(sponsor.CAMPX__Event__c);
+            }
+        }
+
+        Map<Id, CAMPX__Event__c> eventMap = new Map<Id, CAMPX__Event__c>(
+            [SELECT Id, CAMPX__GrossRevenue__c FROM CAMPX__Event__c WHERE Id IN :eventIds]
+        );
+
+        for(CAMPX__Sponsor__c sponsor : newRecords) {
+            if(sponsor.CAMPX__Status__c == 'Accepted' && sponsor.CAMPX__Event__c != null) {
+                Id eventId = sponsor.CAMPX__Event__c;
+                CAMPX__Event__c event = eventMap.get(eventId);
+
+                event.CAMPX__GrossRevenue__c = (event.CAMPX__GrossRevenue__c != null ? event.CAMPX__GrossRevenue__c : 0) + sponsor.CAMPX__ContributionAmount__c;
+            }
+        }
+        
+        update eventMap.values();
     }
 }
