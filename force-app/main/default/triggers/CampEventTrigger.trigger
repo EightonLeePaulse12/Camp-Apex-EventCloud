@@ -4,11 +4,17 @@ trigger CampEventTrigger on CAMPX__Event__c (before insert, after insert, before
 
         if(Trigger.isBefore) {
             if(Trigger.isInsert) {
-                EventTriggerHandler.onBeforeInsert(Trigger.new);
+                EventTriggerHandler.onBeforeInsertAndUpdate(Trigger.new);
+                EventTriggerHandler.onAfterInsertAndUpdate(Trigger.new, null);
+            } 
+            if(Trigger.isUpdate) {
+                EventTriggerHandler.onBeforeInsertAndUpdate(Trigger.new);
+                EventTriggerHandler.onAfterInsertAndUpdate(Trigger.new, null);
             }
-        } else {
+        }
+        if(Trigger.isAfter) {
             if(Trigger.isInsert || Trigger.isUpdate) {
-                EventTriggerHandler.onAfterInsertAndUpdate(Trigger.new, Trigger.oldMap);
+                // EventTriggerHandler.onAfterInsertAndUpdate(Trigger.new, Trigger.oldMap);
             }
         }
     }
