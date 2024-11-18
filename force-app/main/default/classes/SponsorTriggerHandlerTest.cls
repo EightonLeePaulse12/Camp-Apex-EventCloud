@@ -189,7 +189,7 @@ private class SponsorTriggerHandlerTest {
         insert sponsors;
 
         newEvent = [SELECT Id, CAMPX__GrossRevenue__c FROM CAMPX__Event__c WHERE Id = :newEvent.Id];
-        System.assertEquals(6000, newEvent.CAMPX__GrossRevenue__c, 'Gross Revenue should reflect related sponsor\'s contribution amounts');
+        System.assertEquals(6000, newEvent.CAMPX__GrossRevenue__c, 'Initial Gross Revenue should reflect all accepted sponsors');
         
         sponsors[0].CAMPX__Status__c = 'Cancelled';
         sponsors[1].CAMPX__Status__c = 'Pending';
@@ -199,4 +199,29 @@ private class SponsorTriggerHandlerTest {
         newEvent = [SELECT Id, CAMPX__GrossRevenue__c FROM CAMPX__Event__c WHERE Id = :newEvent.Id];
         System.assertEquals(2000, newEvent.CAMPX__GrossRevenue__c, 'Gross Revenue should no longer reflect cancelled or pending sponsors');
     }
+
+    @isTest static void testRejectSponsorAdjustsGrossRevenue() {
+        CAMPX__Event__c event = new CAMPX__Event__c(Name = 'Test Event');
+        insert event;
+    
+        CAMPX__Sponsor__c sponsor = new CAMPX__Sponsor__c(
+            Name = 'Test Sponsor',
+            CAMPX__ContributionAmount__c = 500,
+            CAMPX__Status__c = 'Accepted',
+            CAMPX__Event__c = event.Id,
+            CAMPX__Email__c = 'test@example.com'
+        );
+        insert sponsor;
+    
+        event = [SELECT Id, CAMPX__GrossRevenue__c FROM CAMPX__Event__c WHERE Id = :event.Id];
+        System.assertEquals(500, event.CAMPX__GrossRevenue__c, 'Gross revenue should reflect accepted sponsor contribution');
+    
+        // Change sponsor status to Rejected
+        sponsor.CAMPX__Status__c = 'Rejected';
+        update sponsor;
+    
+        event = [SELECT Id, CAMPX__GrossRevenue__c FROM CAMPX__Event__c WHERE Id = :event.Id];
+        System.assertEquals(0, event.CAMPX__GrossRevenue__c, 'Gross revenue should be zero after sponsor is rejected');
+    }
+    
 }

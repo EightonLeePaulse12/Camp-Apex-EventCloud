@@ -9,7 +9,7 @@ public with sharing class SponsorTriggerHandler {
     private static final Decimal GOLD = 5000;
     
     public static  void handleBeforeInsert(List<CAMPX__Sponsor__c> newRecords, Map<Id, CAMPX__Sponsor__c> oldRecords) {
-        SponsorTriggerHandler.OnBeforeInsert(newRecords);
+        // SponsorTriggerHandler.OnBeforeInsert(newRecords);
         SponsorTriggerHandler.onBeforeInsertAndUpdate(newRecords, oldRecords);
     }
     
@@ -108,31 +108,51 @@ public with sharing class SponsorTriggerHandler {
     }
     
     public static void handleSponsorChanges(List<CAMPX__Sponsor__c> newRecords, Map<Id, CAMPX__Sponsor__c> oldRecords) {
-        for(CAMPX__Sponsor__c sponsor : newRecords) {
-            CAMPX__Sponsor__c oldSponsor =  oldRecords != null ? oldRecords.get(sponsor.Id) : null;
-
-            
-            
-            if (oldSponsor != null && oldSponsor.CAMPX__Status__c == STATUS_ACCEPTED && 
-                (sponsor.CAMPX__Status__c == STATUS_CANCELLED || sponsor.CAMPX__Status__c == STATUS_PENDING || sponsor.CAMPX__Status__c == STATUS_REJECTED)) {
+        Set<Id> eventIds = new Set<Id>();
     
-                // Ensure we decrement the GrossRevenue correctly if the status is rejected or cancelled
-                if (oldSponsor.CAMPX__Event__c != null && oldSponsor.CAMPX__ContributionAmount__c != null) {
-                    CAMPX__Event__c event = [SELECT Id, CAMPX__GrossRevenue__c FROM CAMPX__Event__c WHERE Id = :oldSponsor.CAMPX__Event__c LIMIT 1];
-
-                    if(oldSponsor != null && oldSponsor.CAMPX__Status__c == STATUS_ACCEPTED && sponsor.CAMPX__Event__c == null) {
-                        event.CAMPX__GrossRevenue__c -= oldSponsor.CAMPX__ContributionAmount__c;
-                    }
-                    
-                    if (event != null) {
-                        event.CAMPX__GrossRevenue__c -= oldSponsor.CAMPX__ContributionAmount__c;
-                        update event;
-                    }
+        // Identify affected events
+        for (CAMPX__Sponsor__c sponsor : newRecords) {
+            CAMPX__Sponsor__c oldRecord = oldRecords != null ? oldRecords.get(sponsor.Id) : null;
+    
+            if (oldRecord != null) {
+                if (sponsor.CAMPX__Status__c != oldRecord.CAMPX__Status__c || sponsor.CAMPX__Event__c != oldRecord.CAMPX__Event__c) {
+                    eventIds.add(sponsor.CAMPX__Event__c);
+                    eventIds.add(oldRecord.CAMPX__Event__c);
+                }
+            } else {
+                eventIds.add(sponsor.CAMPX__Event__c);
+            }
+        }
+    
+        Map<Id, Decimal> amountMap = new Map<Id, Decimal>();
+    
+        // Recalculate gross revenue for each affected event
+        if (!eventIds.isEmpty()) {
+            List<CAMPX__Sponsor__c> relatedSponsors = [
+                SELECT CAMPX__Event__c, CAMPX__ContributionAmount__c
+                FROM CAMPX__Sponsor__c
+                WHERE CAMPX__Event__c IN :eventIds AND CAMPX__Status__c = 'Accepted'
+            ];
+    
+            for (CAMPX__Sponsor__c sponsor : relatedSponsors) {
+                if (amountMap.containsKey(sponsor.CAMPX__Event__c)) {
+                    amountMap.put(sponsor.CAMPX__Event__c, amountMap.get(sponsor.CAMPX__Event__c) + sponsor.CAMPX__ContributionAmount__c);
+                } else {
+                    amountMap.put(sponsor.CAMPX__Event__c, sponsor.CAMPX__ContributionAmount__c);
                 }
             }
         }
+    
+        // Prepare updates for events
+        List<CAMPX__Event__c> eventUpdates = new List<CAMPX__Event__c>();
+        for (Id eventId : eventIds) {
+            Decimal newGrossRevenue = amountMap.containsKey(eventId) ? amountMap.get(eventId) : 0;
+            eventUpdates.add(new CAMPX__Event__c(Id = eventId, CAMPX__GrossRevenue__c = newGrossRevenue));
+        }
+    
+        if (!eventUpdates.isEmpty()) {
+            update eventUpdates;
+        }
     }
-    
-    
     
 }
